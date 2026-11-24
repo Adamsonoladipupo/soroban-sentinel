@@ -64,7 +64,11 @@ fn account_key_xdr_base64(strkey: &str) -> String {
 }
 
 /// Base64-encoded `LedgerEntry` XDR wrapping an `AccountEntry`.
-fn build_account_entry_xdr(account_strkey: &str, thresholds: [u8; 4], signers: &[(&str, u32)]) -> String {
+fn build_account_entry_xdr(
+    account_strkey: &str,
+    thresholds: [u8; 4],
+    signers: &[(&str, u32)],
+) -> String {
     let pk = Ed25519PublicKey::from_string(account_strkey).expect("valid account strkey");
     let account_id = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(pk.0)));
 
@@ -72,7 +76,10 @@ fn build_account_entry_xdr(account_strkey: &str, thresholds: [u8; 4], signers: &
         .iter()
         .map(|(s, w)| {
             let spk = Ed25519PublicKey::from_string(s).expect("valid signer strkey");
-            Signer { key: SignerKey::Ed25519(Uint256(spk.0)), weight: *w }
+            Signer {
+                key: SignerKey::Ed25519(Uint256(spk.0)),
+                weight: *w,
+            }
         })
         .collect();
 
@@ -102,7 +109,11 @@ fn raw_entry(account_strkey: &str, thresholds: [u8; 4], signers: &[(&str, u32)])
 }
 
 /// Full RPC `getLedgerEntries` JSON response for an account entry.
-fn ledger_entries_response(account_strkey: &str, thresholds: [u8; 4], signers: &[(&str, u32)]) -> serde_json::Value {
+fn ledger_entries_response(
+    account_strkey: &str,
+    thresholds: [u8; 4],
+    signers: &[(&str, u32)],
+) -> serde_json::Value {
     let key_xdr = account_key_xdr_base64(account_strkey);
     let entry_xdr = build_account_entry_xdr(account_strkey, thresholds, signers);
     json!({
@@ -136,14 +147,22 @@ fn single_signer_bumper_is_master_and_meets_threshold() {
     let master = master_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 1, low: 0, medium: 1, high: 0 },
+        AccountThresholds {
+            master_weight: 1,
+            low: 0,
+            medium: 1,
+            high: 0,
+        },
         vec![],
     );
     let result = verify_bumper_authority(&account, &master).unwrap();
     assert!(result.is_sufficient());
     assert_eq!(
         result,
-        MultisigVerificationResult { bumper_weight: 1, medium_threshold: 1 }
+        MultisigVerificationResult {
+            bumper_weight: 1,
+            medium_threshold: 1
+        }
     );
 }
 
@@ -155,14 +174,22 @@ fn multisig_bumper_extra_signer_meets_threshold() {
     let bumper = cosigner_a_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 1, low: 1, medium: 2, high: 3 },
+        AccountThresholds {
+            master_weight: 1,
+            low: 1,
+            medium: 2,
+            high: 3,
+        },
         vec![SignerEntry::new(&bumper, 2)],
     );
     let result = verify_bumper_authority(&account, &bumper).unwrap();
     assert!(result.is_sufficient());
     assert_eq!(
         result,
-        MultisigVerificationResult { bumper_weight: 2, medium_threshold: 2 }
+        MultisigVerificationResult {
+            bumper_weight: 2,
+            medium_threshold: 2
+        }
     );
 }
 
@@ -175,7 +202,12 @@ fn multisig_bumper_insufficient_weight_returns_error() {
     let co_b = cosigner_b_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 2, low: 1, medium: 3, high: 5 },
+        AccountThresholds {
+            master_weight: 2,
+            low: 1,
+            medium: 3,
+            high: 5,
+        },
         vec![
             SignerEntry::new(&bumper, 1), // the bumper – weight below medium
             SignerEntry::new(&co_b, 2),
@@ -208,7 +240,12 @@ fn identifies_additional_cosigners_greedy_minimum() {
     let co_c = cosigner_c_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 1, low: 0, medium: 5, high: 0 },
+        AccountThresholds {
+            master_weight: 1,
+            low: 0,
+            medium: 5,
+            high: 0,
+        },
         vec![
             SignerEntry::new(&co_a, 3),
             SignerEntry::new(&co_b, 2),
@@ -216,7 +253,12 @@ fn identifies_additional_cosigners_greedy_minimum() {
         ],
     );
     let cosigners = required_cosigners(&account, &master, 1);
-    assert_eq!(cosigners.len(), 2, "expected 2 co-signers, got {:?}", cosigners);
+    assert_eq!(
+        cosigners.len(),
+        2,
+        "expected 2 co-signers, got {:?}",
+        cosigners
+    );
     // Highest weight first.
     assert_eq!(cosigners[0].public_key_strkey, co_a);
     assert_eq!(cosigners[1].public_key_strkey, co_b);
@@ -229,7 +271,12 @@ fn identifies_additional_cosigners_from_error_variant() {
     let co_b = cosigner_b_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 2, low: 1, medium: 3, high: 5 },
+        AccountThresholds {
+            master_weight: 2,
+            low: 1,
+            medium: 3,
+            high: 5,
+        },
         vec![
             SignerEntry::new(&bumper, 1), // bumper
             SignerEntry::new(&co_b, 2),
@@ -237,9 +284,13 @@ fn identifies_additional_cosigners_from_error_variant() {
     );
     let err = verify_bumper_authority(&account, &bumper).unwrap_err();
     match err {
-        MultisigError::InsufficientWeight { additional_signers, .. } => {
+        MultisigError::InsufficientWeight {
+            additional_signers, ..
+        } => {
             assert!(
-                additional_signers.iter().any(|k| k == &co_b || k == &master),
+                additional_signers
+                    .iter()
+                    .any(|k| k == &co_b || k == &master),
                 "expected co_b or master in additional signers, got {additional_signers:?}"
             );
         }
@@ -255,7 +306,12 @@ fn error_message_mentions_account_bumper_key_and_weights() {
     let bumper = cosigner_a_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 1, low: 0, medium: 3, high: 0 },
+        AccountThresholds {
+            master_weight: 1,
+            low: 0,
+            medium: 3,
+            high: 0,
+        },
         vec![SignerEntry::new(&bumper, 1)],
     );
     let err = verify_bumper_authority(&account, &bumper).unwrap_err();
@@ -272,7 +328,12 @@ fn error_message_for_unknown_key_mentions_key_and_account() {
     let unknown = cosigner_a_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 1, low: 0, medium: 1, high: 0 },
+        AccountThresholds {
+            master_weight: 1,
+            low: 0,
+            medium: 1,
+            high: 0,
+        },
         vec![],
     );
     let err = verify_bumper_authority(&account, &unknown).unwrap_err();
@@ -289,10 +350,17 @@ fn zero_medium_threshold_always_sufficient_for_authorised_signer() {
     let bumper = cosigner_a_strkey();
     let account = AccountSignerConfig::new(
         &master,
-        AccountThresholds { master_weight: 1, low: 0, medium: 0, high: 0 },
+        AccountThresholds {
+            master_weight: 1,
+            low: 0,
+            medium: 0,
+            high: 0,
+        },
         vec![SignerEntry::new(&bumper, 1)],
     );
-    assert!(verify_bumper_authority(&account, &bumper).unwrap().is_sufficient());
+    assert!(verify_bumper_authority(&account, &bumper)
+        .unwrap()
+        .is_sufficient());
     assert!(required_cosigners(&account, &bumper, 1).is_empty());
 }
 
@@ -327,7 +395,9 @@ async fn adapter_fetches_multisig_account() {
 async fn adapter_returns_account_not_found_for_missing_entry() {
     let master = master_strkey();
     let reader = MockLedgerReader::new();
-    let err = fetch_account_signer_config(&reader, &master).await.unwrap_err();
+    let err = fetch_account_signer_config(&reader, &master)
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, MultisigError::AccountNotFound(_)),
         "expected AccountNotFound, got {err:?}"
@@ -343,8 +413,11 @@ async fn wiremock_single_signer_bumper_satisfies_medium_threshold() {
     Mock::given(method("POST"))
         .and(path("/"))
         .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(ledger_entries_response(&master, [1, 0, 1, 0], &[])),
+            ResponseTemplate::new(200).set_body_json(ledger_entries_response(
+                &master,
+                [1, 0, 1, 0],
+                &[],
+            )),
         )
         .expect(1)
         .mount(&server)
@@ -423,7 +496,9 @@ async fn wiremock_multisig_bumper_weight_insufficient_reports_cosigners() {
             );
             // co_b (weight=2) or master (weight=2) must be suggested.
             assert!(
-                additional_signers.iter().any(|k| k == &co_b || k == &master),
+                additional_signers
+                    .iter()
+                    .any(|k| k == &co_b || k == &master),
                 "expected co_b or master in additional signers, got {additional_signers:?}"
             );
         }

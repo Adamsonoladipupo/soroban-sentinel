@@ -18,13 +18,8 @@ use thiserror::Error;
 pub enum MultisigError {
     /// The bumper's signing key was not found among the account's signers and
     /// is also not the account master key.
-    #[error(
-        "Signing key '{bumper_key}' is not an authorised signer on account '{account}'."
-    )]
-    SignerNotFound {
-        bumper_key: String,
-        account: String,
-    },
+    #[error("Signing key '{bumper_key}' is not an authorised signer on account '{account}'.")]
+    SignerNotFound { bumper_key: String, account: String },
 
     /// The bumper's total weight is below the medium threshold required for
     /// `ExtendFootprintTTLOp`.
@@ -186,12 +181,13 @@ pub fn verify_bumper_authority(
     account: &AccountSignerConfig,
     bumper_key: &str,
 ) -> Result<MultisigVerificationResult, MultisigError> {
-    let bumper_weight = account
-        .weight_of(bumper_key)
-        .ok_or_else(|| MultisigError::SignerNotFound {
-            bumper_key: bumper_key.to_owned(),
-            account: account.account_strkey.clone(),
-        })?;
+    let bumper_weight =
+        account
+            .weight_of(bumper_key)
+            .ok_or_else(|| MultisigError::SignerNotFound {
+                bumper_key: bumper_key.to_owned(),
+                account: account.account_strkey.clone(),
+            })?;
 
     let medium_threshold = u32::from(account.thresholds.medium);
 
@@ -212,7 +208,7 @@ pub fn verify_bumper_authority(
         .filter(|s| s.public_key_strkey != bumper_key && s.weight > 0)
         .cloned()
         .collect();
-    candidates.sort_by(|a, b| b.weight.cmp(&a.weight));
+    candidates.sort_by_key(|a| std::cmp::Reverse(a.weight));
 
     // Also consider the master key if it isn't the bumper.
     let master_weight = u32::from(account.thresholds.master_weight);
@@ -274,7 +270,7 @@ pub fn required_cosigners(
         }
     }
 
-    candidates.sort_by(|a, b| b.weight.cmp(&a.weight));
+    candidates.sort_by_key(|a| std::cmp::Reverse(a.weight));
 
     let mut result = Vec::new();
     for signer in candidates {
@@ -336,8 +332,11 @@ mod tests {
     #[test]
     fn unregistered_key_returns_signer_not_found() {
         let account = single_signer_account(1, 1);
-        let err = verify_bumper_authority(&account, "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-            .unwrap_err();
+        let err = verify_bumper_authority(
+            &account,
+            "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        )
+        .unwrap_err();
         assert!(matches!(err, MultisigError::SignerNotFound { .. }));
     }
 
@@ -428,9 +427,18 @@ mod tests {
                 high: 0,
             },
             vec![
-                SignerEntry::new("GBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", 3),
-                SignerEntry::new("GCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", 2),
-                SignerEntry::new("GDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", 1),
+                SignerEntry::new(
+                    "GBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+                    3,
+                ),
+                SignerEntry::new(
+                    "GCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+                    2,
+                ),
+                SignerEntry::new(
+                    "GDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+                    1,
+                ),
             ],
         );
         // Bumper has weight 1, medium = 5, needs 4 more.

@@ -71,7 +71,7 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 /// # Parameters
 ///
 /// * `reader`          – Any [`LedgerReader`] implementation (live RPC client
-///                       or mock).
+///   or mock).
 /// * `account_strkey`  – The `G...` Strkey public key of the account.
 ///
 /// # Errors
@@ -86,13 +86,14 @@ pub async fn fetch_account_signer_config(
 ) -> Result<AccountSignerConfig, MultisigError> {
     let key_xdr = account_ledger_key(account_strkey)?;
 
-    let entries = reader
-        .get_ledger_entries(&[key_xdr])
-        .await
-        .map_err(|e| MultisigError::XdrDecodeError {
-            account: account_strkey.to_owned(),
-            reason: format!("RPC error: {e}"),
-        })?;
+    let entries =
+        reader
+            .get_ledger_entries(&[key_xdr])
+            .await
+            .map_err(|e| MultisigError::XdrDecodeError {
+                account: account_strkey.to_owned(),
+                reason: format!("RPC error: {e}"),
+            })?;
 
     let raw = entries
         .into_iter()
@@ -124,7 +125,11 @@ pub async fn fetch_account_signer_config(
         .map(|s| SignerEntry::new(signer_key_to_strkey(&s.key), s.weight))
         .collect();
 
-    Ok(AccountSignerConfig::new(account_strkey, thresholds, signers))
+    Ok(AccountSignerConfig::new(
+        account_strkey,
+        thresholds,
+        signers,
+    ))
 }
 
 // ── Helpers for constructing test XDR fixtures ────────────────────────────────
@@ -149,7 +154,11 @@ mod tests {
         account_ledger_key(strkey).expect("valid strkey")
     }
 
-    fn build_account_entry_xdr(account_strkey: &str, thresholds: [u8; 4], signers: &[(&str, u32)]) -> String {
+    fn build_account_entry_xdr(
+        account_strkey: &str,
+        thresholds: [u8; 4],
+        signers: &[(&str, u32)],
+    ) -> String {
         use stellar_xdr::curr::{
             AccountEntry, AccountEntryExt, LedgerEntry, LedgerEntryData, LedgerEntryExt, Limits,
             SequenceNumber, Signer, SignerKey, String32, Thresholds, VecM,
@@ -160,7 +169,10 @@ mod tests {
             .iter()
             .map(|(s, w)| {
                 let spk = Ed25519PublicKey::from_string(s).expect("valid signer strkey");
-                Signer { key: SignerKey::Ed25519(Uint256(spk.0)), weight: *w }
+                Signer {
+                    key: SignerKey::Ed25519(Uint256(spk.0)),
+                    weight: *w,
+                }
             })
             .collect();
         let entry = LedgerEntry {
@@ -182,7 +194,11 @@ mod tests {
         entry.to_xdr_base64(Limits::none()).expect("encode entry")
     }
 
-    fn make_raw_entry(account_strkey: &str, thresholds: [u8; 4], signers: &[(&str, u32)]) -> RawLedgerEntry {
+    fn make_raw_entry(
+        account_strkey: &str,
+        thresholds: [u8; 4],
+        signers: &[(&str, u32)],
+    ) -> RawLedgerEntry {
         let key_xdr = make_key_xdr(account_strkey);
         let entry_xdr = build_account_entry_xdr(account_strkey, thresholds, signers);
         RawLedgerEntry::new(key_xdr, entry_xdr, 0, 0)
@@ -193,9 +209,7 @@ mod tests {
         let bumper = bumper_strkey();
         let entry = make_raw_entry(&bumper, [1, 0, 1, 0], &[]);
         let reader = MockLedgerReader::new().with_entry(entry);
-        let config = fetch_account_signer_config(&reader, &bumper)
-            .await
-            .unwrap();
+        let config = fetch_account_signer_config(&reader, &bumper).await.unwrap();
         assert_eq!(config.account_strkey, bumper);
         assert_eq!(config.thresholds.master_weight, 1);
         assert_eq!(config.thresholds.medium, 1);
@@ -208,9 +222,7 @@ mod tests {
         let cosigner = cosigner_strkey();
         let entry = make_raw_entry(&bumper, [1, 1, 2, 3], &[(&cosigner, 2)]);
         let reader = MockLedgerReader::new().with_entry(entry);
-        let config = fetch_account_signer_config(&reader, &bumper)
-            .await
-            .unwrap();
+        let config = fetch_account_signer_config(&reader, &bumper).await.unwrap();
         assert_eq!(config.thresholds.medium, 2);
         assert_eq!(config.signers.len(), 1);
         assert_eq!(config.signers[0].public_key_strkey, cosigner);

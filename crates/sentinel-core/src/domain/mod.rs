@@ -2,7 +2,6 @@
 
 pub mod alias;
 pub mod budget;
-pub mod multisig;
 pub mod bundle;
 pub mod burn_rate;
 pub(crate) mod cache;
@@ -15,6 +14,7 @@ pub mod fee_bump;
 pub mod footprint;
 pub mod histogram;
 pub mod key_pattern;
+pub mod multisig;
 pub mod network_limits;
 pub mod planner;
 pub mod recommend;
